@@ -1,16 +1,28 @@
-
 @extends('pension-guard.layout')
 
 @section('title', 'Sign in | Pension Account Guard')
 
 @section('content')
 <div class="panel" style="max-width:520px;margin:20px auto">
+
     <h2>Sign in to Pension Account Guard</h2>
 
     <p class="muted">
         Sign in to manage your pension records and view your saved
         security awareness assessments.
     </p>
+
+    @if (session('status'))
+        <p role="status">{{ session('status') }}</p>
+    @endif
+
+    @if ($errors->any())
+        <div role="alert">
+            @foreach ($errors->all() as $error)
+                <p>{{ $error }}</p>
+            @endforeach
+        </div>
+    @endif
 
     <form method="POST" action="{{ route('pension-guard.login.submit') }}">
         @csrf
@@ -35,6 +47,12 @@
             required
             style="width:100%"
         >
+
+        <p>
+            <a href="{{ route('pension-guard.password.request') }}">
+                Forgot your password?
+            </a>
+        </p>
 
         <p>
             <button type="submit">Sign in</button>

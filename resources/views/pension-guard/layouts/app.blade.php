@@ -138,11 +138,23 @@
     <header>
         <h1>Pension Account Guard</h1>
 
-        <nav aria-label="Pension Account Guard navigation">
-            <a href="{{ route('pension-guard.dashboard') }}">Dashboard</a>
+    <nav aria-label="Pension Account Guard navigation">
+        <a href="{{ route('pension-guard.dashboard') }}">Dashboard</a>
+
+        @auth('pension_guard')
+           @if (auth('pension_guard')->user()?->is_admin)
             <a href="{{ route('pension-guard.admin.index') }}">Administration</a>
-            <a href="{{ route('pension-guard.admin.audit.index') }}">Audit log</a>
-        </nav>
+          <a href="{{ route('pension-guard.admin.audit.index') }}">Audit log</a>
+        @endif
+           <form method="POST" action="{{ route('pension-guard.logout') }}" style="display:inline">
+         @csrf
+            <button type="submit">Sign out</button>
+             </form>
+        @else
+            <a href="{{ route('pension-guard.login') }}">Sign in</a>
+            <a href="{{ route('pension-guard.register') }}">Create account</a>
+        @endauth
+    </nav>
     </header>
 
     <main>
@@ -156,7 +168,7 @@
     </main>
 
     <footer>
-        Pension Account Guard — pension security information and awareness.
+     Pension Account Guard &mdash; pension security information and awareness.
     </footer>
 </body>
 </html>

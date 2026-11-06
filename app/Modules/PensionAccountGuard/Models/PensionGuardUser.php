@@ -2,14 +2,18 @@
 
 namespace App\Modules\PensionAccountGuard\Models;
 
+use App\Modules\PensionAccountGuard\Notifications\PensionGuardResetPassword;
+use App\Modules\PensionAccountGuard\Notifications\PensionGuardVerifyEmail;
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class PensionGuardUser extends Authenticatable
+class PensionGuardUser extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, MustVerifyEmailTrait;
 
     protected $table = 'pension_guard_users';
 
@@ -17,6 +21,7 @@ class PensionGuardUser extends Authenticatable
         'name',
         'username',
         'email',
+	'email_verified_at',
         'password',
         'is_admin',
         'stripe_customer_id',
@@ -36,13 +41,24 @@ class PensionGuardUser extends Authenticatable
         ];
     }
 
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new PensionGuardResetPassword($token));
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new PensionGuardVerifyEmail());
+    }
+
     public function trustedContacts(): HasMany
     {
         return $this->hasMany(
-        PensionGuardTrustedContact::class,
-        'user_id'
+            PensionGuardTrustedContact::class,
+            'user_id'
         );
     }
+
     public function subscriptions(): HasMany
     {
         return $this->hasMany(
@@ -50,6 +66,7 @@ class PensionGuardUser extends Authenticatable
             'user_id'
         );
     }
+
     public function payments(): HasMany
     {
         return $this->hasMany(

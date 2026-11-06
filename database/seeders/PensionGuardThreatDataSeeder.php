@@ -25,7 +25,7 @@ class PensionGuardThreatDataSeeder extends Seeder
                 'title' => 'Unexpected contact',
                 'description' => 'You receive an unexpected call, message, email or social media approach about your pension.',
                 'severity' => 'medium',
-                'recommended_action' => 'Do not rely on the sender’s contact details. Verify the organisation independently before responding.',
+                'recommended_action' => 'Do not rely on the sender\'s contact details. Verify the organisation independently before responding.',
                 'official_source_url' => 'https://www.fca.org.uk/scamsmart',
             ],
             [

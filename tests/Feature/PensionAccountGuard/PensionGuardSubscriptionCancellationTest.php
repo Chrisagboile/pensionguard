@@ -15,11 +15,12 @@ class PensionGuardSubscriptionCancellationTest extends TestCase
 
     private function createPensionGuardUser(): PensionGuardUser
     {
-        return PensionGuardUser::create([
-            'name' => fake()->name(),
-            'username' => fake()->unique()->userName(),
-            'email' => fake()->unique()->safeEmail(),
-            'password' => 'TestPassword123!',
+    return PensionGuardUser::create([
+        'name' => fake()->name(),
+        'username' => fake()->unique()->userName(),
+        'email' => fake()->unique()->safeEmail(),
+         'email_verified_at' => now(),
+        'password' => 'TestPassword123!',
         ]);
     }
 

@@ -1,16 +1,24 @@
-
 @extends('pension-guard.layout')
 
 @section('title', 'Create account | Pension Account Guard')
 
 @section('content')
 <div class="panel" style="max-width:560px;margin:20px auto">
+
     <h2>Create your Pension Guard account</h2>
 
     <p class="muted">
         Create a separate account to save your pension records and
         security awareness assessment results.
     </p>
+
+    @if ($errors->any())
+        <div role="alert">
+            @foreach ($errors->all() as $error)
+                <p>{{ $error }}</p>
+            @endforeach
+        </div>
+    @endif
 
     <form method="POST" action="{{ route('pension-guard.register.submit') }}">
         @csrf
@@ -40,6 +48,7 @@
             aria-describedby="username-help"
             style="width:100%"
         >
+
         <small id="username-help" class="muted">
             Use letters, numbers, underscores or hyphens.
         </small>
@@ -63,9 +72,10 @@
             name="password"
             autocomplete="new-password"
             required
-            minlength="8"
+            minlength="12"
             style="width:100%"
         >
+
         <small class="muted">
             Use a strong, unique password that you do not use elsewhere.
         </small>
@@ -77,7 +87,7 @@
             name="password_confirmation"
             autocomplete="new-password"
             required
-            minlength="8"
+            minlength="12"
             style="width:100%"
         >
 

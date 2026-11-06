@@ -13,13 +13,11 @@ use Throwable;
 
 class PensionGuardSubscriptionController extends Controller
 {
-    public function __construct(
-        protected StripeSubscriptionService $stripe
-    ) {
-    }
-
     /**
      * Display subscription plans and the user's billing history.
+     *
+     * Stripe is deliberately not initialised here.
+     * This page must work even when billing is not configured.
      */
     public function index()
     {
@@ -74,7 +72,10 @@ class PensionGuardSubscriptionController extends Controller
         $user = Auth::guard('pension_guard')->user();
 
         try {
-            $session = $this->stripe->createCheckoutSession(
+            // Initialise Stripe only when checkout is requested.
+            $stripe = app(StripeSubscriptionService::class);
+
+            $session = $stripe->createCheckoutSession(
                 $user,
                 $validated['interval']
             );
@@ -113,10 +114,22 @@ class PensionGuardSubscriptionController extends Controller
      */
     public function billingPortal()
     {
+        if (!config('pension_guard_billing.enabled')) {
+            return redirect()
+                ->route('pension-guard.subscriptions.index')
+                ->with(
+                    'error',
+                    'Premium subscriptions are temporarily unavailable.'
+                );
+        }
+
         $user = Auth::guard('pension_guard')->user();
 
         try {
-            $session = $this->stripe->createBillingPortalSession($user);
+            // Initialise Stripe only when the billing portal is requested.
+            $stripe = app(StripeSubscriptionService::class);
+
+            $session = $stripe->createBillingPortalSession($user);
 
             return redirect()->away($session->url);
         } catch (RuntimeException $exception) {
@@ -137,6 +150,15 @@ class PensionGuardSubscriptionController extends Controller
      */
     public function cancel(int $subscription)
     {
+        if (!config('pension_guard_billing.enabled')) {
+            return redirect()
+                ->route('pension-guard.subscriptions.index')
+                ->with(
+                    'error',
+                    'Premium subscriptions are temporarily unavailable.'
+                );
+        }
+
         $user = Auth::guard('pension_guard')->user();
 
         // Only retrieve a subscription owned by this user.
@@ -146,7 +168,10 @@ class PensionGuardSubscriptionController extends Controller
         )->findOrFail($subscription);
 
         try {
-            $this->stripe->cancelAtPeriodEnd(
+            // Initialise Stripe only when cancellation is requested.
+            $stripe = app(StripeSubscriptionService::class);
+
+            $stripe->cancelAtPeriodEnd(
                 $user,
                 $subscriptionRecord
             );
@@ -157,12 +182,10 @@ class PensionGuardSubscriptionController extends Controller
                     'success',
                     'Your cancellation request has been submitted. Your Premium access will continue until the end of your current billing period.'
                 );
-
         } catch (RuntimeException $exception) {
             return redirect()
                 ->route('pension-guard.subscriptions.index')
                 ->with('error', $exception->getMessage());
-
         } catch (Throwable $exception) {
             report($exception);
 
@@ -174,5 +197,4 @@ class PensionGuardSubscriptionController extends Controller
                 );
         }
     }
-
 }

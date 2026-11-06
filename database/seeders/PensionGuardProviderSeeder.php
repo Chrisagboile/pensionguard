@@ -15,7 +15,7 @@ class PensionGuardProviderSeeder extends Seeder
                 'website_url' => 'https://www.nestpensions.org.uk/',
             ],
             [
-                'name' => 'The People’s Pension',
+                'name' => 'The People\'s Pension',
                 'website_url' => 'https://thepeoplespension.co.uk/',
             ],
             [

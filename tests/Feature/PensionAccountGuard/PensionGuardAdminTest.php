@@ -17,6 +17,7 @@ class PensionGuardAdminTest extends TestCase
             'name' => fake()->name(),
             'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
+            'email_verified_at' => now(),
             'password' => 'TestPassword123!',
             'is_admin' => $isAdmin,
         ]);

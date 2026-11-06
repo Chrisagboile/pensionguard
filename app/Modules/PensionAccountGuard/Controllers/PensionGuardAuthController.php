@@ -26,30 +26,39 @@ class PensionGuardAuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (Auth::guard('pension_guard')->attempt($credentials)) {
-            $request->session()->regenerate();
+        if (! Auth::guard('pension_guard')->attempt($credentials)) {
+            return back()
+                ->withErrors([
+                    'email' => 'The email address or password is incorrect.',
+                ])
+                ->onlyInput('email');
+        }
 
-            // Reminders must not prevent a successful login.
-            try {
-                $user = Auth::guard('pension_guard')->user();
+        $request->session()->regenerate();
 
-                if ($user instanceof PensionGuardUser) {
-                    $reminderService->remindAboutIncompleteChecks($user);
-                }
-            } catch (Throwable $exception) {
-                report($exception);
-            }
+        $user = Auth::guard('pension_guard')->user();
 
-            return redirect()->intended(
-                route('pension-guard.dashboard')
+        if (! $user instanceof PensionGuardUser) {
+            Auth::guard('pension_guard')->logout();
+
+            return redirect()->route('pension-guard.login');
+        }
+
+        if (! $user->hasVerifiedEmail()) {
+            return redirect()->route(
+                'pension-guard.verification.notice'
             );
         }
 
-        return back()
-            ->withErrors([
-                'email' => 'The email address or password is incorrect.',
-            ])
-            ->onlyInput('email');
+        try {
+            $reminderService->remindAboutIncompleteChecks($user);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        return redirect()->intended(
+            route('pension-guard.dashboard')
+        );
     }
 
     public function showRegister()
@@ -63,6 +72,7 @@ class PensionGuardAuthController extends Controller
     ) {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+
             'username' => [
                 'required',
                 'string',
@@ -70,16 +80,18 @@ class PensionGuardAuthController extends Controller
                 'alpha_dash',
                 Rule::unique('pension_guard_users', 'username'),
             ],
+
             'email' => [
                 'required',
                 'email',
                 'max:255',
                 Rule::unique('pension_guard_users', 'email'),
             ],
+
             'password' => [
                 'required',
                 'string',
-                'min:8',
+                'min:12',
                 'confirmed',
             ],
         ]);
@@ -90,23 +102,23 @@ class PensionGuardAuthController extends Controller
 
         $request->session()->regenerate();
 
-        // A newly registered user may have no pension accounts yet.
-        // The service will return without creating a reminder if
-        // there are no incomplete security checks.
+        $user->sendEmailVerificationNotification();
+
         try {
             $reminderService->remindAboutIncompleteChecks($user);
         } catch (Throwable $exception) {
             report($exception);
         }
 
-        return redirect()->route('pension-guard.dashboard');
+        return redirect()->route(
+            'pension-guard.verification.notice'
+        );
     }
 
     public function logout(Request $request)
     {
         Auth::guard('pension_guard')->logout();
 
-        // Preserve other modules' session data.
         $request->session()->regenerate();
 
         return redirect()->route('pension-guard.dashboard');

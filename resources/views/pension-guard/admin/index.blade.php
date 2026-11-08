@@ -14,6 +14,11 @@
         <a href="{{ route('pension-guard.admin.sources.index') }}">
             Manage official sources
         </a>
+
+	<a href="{{ route('pension-guard.admin.availability.index') }}"
+             class="button">
+                 Manage Session Availability
+	</a>
     </p>
 </section>
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -120,6 +121,14 @@
             padding: 9px 12px;
         }
 
+        .pg-customer-navigation {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+        }
+
         main {
             width: 100%;
             max-width: 1200px;
@@ -212,6 +221,21 @@
                 Home
             </a>
 
+            <a href="{{ route('about') }}"
+               @if(request()->routeIs('about')) aria-current="page" @endif>
+                About
+            </a>
+
+            <a href="{{ route('pricing') }}"
+               @if(request()->routeIs('pricing')) aria-current="page" @endif>
+                Pricing
+            </a>
+
+            <a href="{{ route('contact') }}"
+               @if(request()->routeIs('contact')) aria-current="page" @endif>
+                Contact
+            </a>
+
             <a href="{{ route('pension-guard.assessments.create') }}"
                @if(request()->routeIs('pension-guard.assessments.create', 'pension-guard.assessments.store')) aria-current="page" @endif>
                 Security assessment
@@ -228,38 +252,64 @@
             </a>
 
             @auth('pension_guard')
-                <span class="nav-heading">My pension security</span>
 
-                <a href="{{ route('pension-guard.accounts.index') }}"
-                   @if(request()->routeIs('pension-guard.accounts.*', 'pension-guard.checklist.*')) aria-current="page" @endif>
-                    My pensions and checklists
-                </a>
-                <a href="{{ route('pension-guard.subscriptions.index') }}"
-                @if(request()->routeIs('pension-guard.subscriptions.*')) aria-current="page" @endif>
-                    Subscription
-                </a>
-                <a href="{{ route('pension-guard.assessments.history') }}"
-                   @if(request()->routeIs('pension-guard.assessments.history', 'pension-guard.assessments.show')) aria-current="page" @endif>
-                    Assessment history
-                </a>
+                @if (auth('pension_guard')->user()->hasVerifiedEmail())
+                    <span class="nav-heading">My pension security</span>
 
-                <a href="{{ route('pension-guard.trusted-contacts.index') }}"
-                   @if(request()->routeIs('pension-guard.trusted-contacts.*')) aria-current="page" @endif>
-                    Trusted contacts
-                </a>
+                    <a href="{{ route('pension-guard.accounts.index') }}"
+                       @if(request()->routeIs('pension-guard.accounts.*', 'pension-guard.checklist.*')) aria-current="page" @endif>
+                        My pensions and checklists
+                    </a>
 
-                <a href="{{ route('pension-guard.notifications.index') }}"
-                   @if(request()->routeIs('pension-guard.notifications.*')) aria-current="page" @endif>
-                    Notifications
-                </a>
+                    <a href="{{ route('pension-guard.subscriptions.index') }}"
+                       @if(request()->routeIs('pension-guard.subscriptions.*')) aria-current="page" @endif>
+                        Subscription
+                    </a>
 
-                @if (auth('pension_guard')->user()?->is_admin)
+                    <a href="{{ route('pension-guard.assessments.history') }}"
+                       @if(request()->routeIs('pension-guard.assessments.history', 'pension-guard.assessments.show')) aria-current="page" @endif>
+                        Assessment history
+                    </a>
+
+                    <a href="{{ route('pension-guard.trusted-contacts.index') }}"
+                       @if(request()->routeIs('pension-guard.trusted-contacts.*')) aria-current="page" @endif>
+                        Trusted contacts
+                    </a>
+
+                    <a href="{{ route('pension-guard.notifications.index') }}"
+                       @if(request()->routeIs('pension-guard.notifications.*')) aria-current="page" @endif>
+                        Notifications
+                    </a>
+
+                    <span class="nav-heading">Pension protection sessions</span>
+
+                    <div class="pg-customer-navigation">
+                        <a href="{{ route('pension-guard.sessions.create') }}"
+                           @if(request()->routeIs('pension-guard.sessions.create', 'pension-guard.sessions.store')) aria-current="page" @endif>
+                            Book a Pension Protection Session
+                        </a>
+
+                        <a href="{{ route('pension-guard.sessions.index') }}"
+                           @if(request()->routeIs('pension-guard.sessions.index', 'pension-guard.sessions.show', 'pension-guard.sessions.success', 'pension-guard.sessions.cancelled')) aria-current="page" @endif>
+                            My Session Bookings
+                        </a>
+                    </div>
+                @endif
+
+                @if (auth('pension_guard')->user()?->is_admin
+                    && auth('pension_guard')->user()->hasVerifiedEmail())
+
                     <div class="pg-admin-navigation" aria-label="Administration">
                         <span class="pg-admin-label">Administration</span>
 
                         <a href="{{ route('pension-guard.admin.index') }}"
                            @if(request()->routeIs('pension-guard.admin.index')) aria-current="page" @endif>
                             Admin dashboard
+                        </a>
+
+                        <a href="{{ route('pension-guard.admin.availability.index') }}"
+                           @if(request()->routeIs('pension-guard.admin.availability.*')) aria-current="page" @endif>
+                            Manage Session Availability
                         </a>
 
                         <a href="{{ route('pension-guard.admin.audit.index') }}"
@@ -287,7 +337,9 @@
                     @csrf
                     <button class="nav-button" type="submit">Sign out</button>
                 </form>
+
             @else
+
                 <span class="nav-heading">Account</span>
 
                 <a href="{{ route('pension-guard.login') }}"
@@ -299,6 +351,7 @@
                    @if(request()->routeIs('pension-guard.register')) aria-current="page" @endif>
                     Create account
                 </a>
+
             @endauth
         </nav>
     </div>
@@ -308,6 +361,12 @@
     @if (session('status'))
         <div class="panel status-message" role="status">
             {{ session('status') }}
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="panel error error-message" role="alert">
+            {{ session('error') }}
         </div>
     @endif
 
@@ -331,14 +390,28 @@
             <strong>Pension Account Guard</strong> provides educational
             security information, not financial or pension advice.
         </p>
+
         <p>
             Never enter your pension password, one-time security code or
             online banking credentials into this application.
         </p>
+
         <p>
             Information from this application does not guarantee that a
             pension account is secure. Verify concerns directly with your
             pension provider using independently confirmed contact details.
+        </p>
+
+        <p>
+            <a href="{{ route('privacy-policy') }}">Privacy Policy</a>
+            &nbsp;|&nbsp;
+            <a href="{{ route('terms-and-conditions') }}">Terms and Conditions</a>
+            &nbsp;|&nbsp;
+            <a href="{{ route('about') }}">About</a>
+            &nbsp;|&nbsp;
+            <a href="{{ route('pricing') }}">Pricing</a>
+            &nbsp;|&nbsp;
+            <a href="{{ route('contact') }}">Contact</a>
         </p>
     </div>
 </footer>

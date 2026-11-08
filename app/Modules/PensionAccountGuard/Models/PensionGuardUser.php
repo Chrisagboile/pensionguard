@@ -74,4 +74,13 @@ class PensionGuardUser extends Authenticatable implements MustVerifyEmail
             'user_id'
         );
     }
+
+    public function sessionBookings(): HasMany
+    {
+                    return $this->hasMany(
+                                    PensionGuardSessionBooking::class,
+                                    'user_id'
+                    );
+    }
+
 }

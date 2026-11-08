@@ -909,7 +909,7 @@
 
 
         <div class="copyright">
-            © {{ date('Y') }} CyberReadyAI. All rights reserved.
+            © {{ date('Y') }} Tekbiserv Ltd. All rights reserved.
         </div>
 
     </footer>

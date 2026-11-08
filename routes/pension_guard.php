@@ -1,34 +1,53 @@
+
 <?php
 
-use App\Modules\PensionAccountGuard\Controllers\PensionGuardTrustedContactController;
-use App\Modules\PensionAccountGuard\Controllers\PensionGuardNotificationController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardAccountController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardAdminController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardAssessmentController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardAuditController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardAuthController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardChecklistController;
+use App\Modules\PensionAccountGuard\Controllers\PensionGuardContactController;
+use App\Modules\PensionAccountGuard\Controllers\PensionGuardEmailVerificationController;
+use App\Modules\PensionAccountGuard\Controllers\PensionGuardNotificationController;
+use App\Modules\PensionAccountGuard\Controllers\PensionGuardPasswordResetController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardSecurityIncidentController;
-use App\Modules\PensionAccountGuard\Controllers\PensionGuardSubscriptionController;
+use App\Modules\PensionAccountGuard\Controllers\PensionGuardSessionAvailabilityController;
+use App\Modules\PensionAccountGuard\Controllers\PensionGuardSessionBookingController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardSourceAdminController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardSourceController;
+use App\Modules\PensionAccountGuard\Controllers\PensionGuardSubscriptionController;
 use App\Modules\PensionAccountGuard\Controllers\PensionGuardThreatController;
-use App\Modules\PensionAccountGuard\Controllers\PensionGuardPasswordResetController;
-use App\Modules\PensionAccountGuard\Controllers\PensionGuardEmailVerificationController;
+use App\Modules\PensionAccountGuard\Controllers\PensionGuardTrustedContactController;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Pension Account Guard Routes
+|--------------------------------------------------------------------------
+*/
 
 Route::prefix('pension-guard')
     ->name('pension-guard.')
     ->group(function () {
 
-        // Stripe webhook
+        /*
+        |--------------------------------------------------------------------------
+        | Stripe Webhook
+        |--------------------------------------------------------------------------
+        */
 
         Route::post('/stripe/webhook', [
             \App\Modules\PensionAccountGuard\Controllers\PensionGuardStripeWebhookController::class,
             'handle',
         ])->name('stripe.webhook');
 
-        // Public pages
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Pages
+        |--------------------------------------------------------------------------
+        */
 
         Route::get('/', fn () => view('pension-guard.dashboard'))
             ->name('dashboard');
@@ -49,7 +68,12 @@ Route::prefix('pension-guard')
             'index',
         ])->name('sources.index');
 
-        // Public trusted-contact verification
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Trusted Contact Verification
+        |--------------------------------------------------------------------------
+        */
 
         Route::get(
             '/trusted-contacts/{contact}/verify/{token}',
@@ -58,7 +82,12 @@ Route::prefix('pension-guard')
             ->whereNumber('contact')
             ->name('trusted-contacts.verify');
 
-        // Login and registration
+
+        /*
+        |--------------------------------------------------------------------------
+        | Login and Registration
+        |--------------------------------------------------------------------------
+        */
 
         Route::get('/login', [
             PensionGuardAuthController::class,
@@ -84,7 +113,12 @@ Route::prefix('pension-guard')
         ])->middleware(['guest:pension_guard', 'throttle:5,1'])
           ->name('register.submit');
 
-        // Password reset
+
+        /*
+        |--------------------------------------------------------------------------
+        | Password Reset
+        |--------------------------------------------------------------------------
+        */
 
         Route::get('/forgot-password', [
             PensionGuardPasswordResetController::class,
@@ -110,7 +144,12 @@ Route::prefix('pension-guard')
         ])->middleware(['guest:pension_guard', 'throttle:5,1'])
           ->name('password.update');
 
-        // Email verification
+
+        /*
+        |--------------------------------------------------------------------------
+        | Email Verification
+        |--------------------------------------------------------------------------
+        */
 
         Route::get('/email/verify/{id}/{hash}', [
             PensionGuardEmailVerificationController::class,
@@ -131,10 +170,14 @@ Route::prefix('pension-guard')
                 'resend',
             ])->middleware('throttle:6,1')
               ->name('verification.send');
-
         });
 
-        // Public assessments
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Pension Security Assessments
+        |--------------------------------------------------------------------------
+        */
 
         Route::get('/assessments/create', [
             PensionGuardAssessmentController::class,
@@ -152,7 +195,12 @@ Route::prefix('pension-guard')
             'result',
         ])->name('assessments.result');
 
-        // Logout remains available to unverified users.
+
+        /*
+        |--------------------------------------------------------------------------
+        | Logout
+        |--------------------------------------------------------------------------
+        */
 
         Route::post('/logout', [
             PensionGuardAuthController::class,
@@ -160,7 +208,12 @@ Route::prefix('pension-guard')
         ])->middleware('auth:pension_guard')
           ->name('logout');
 
-        // Administrator dashboard
+
+        /*
+        |--------------------------------------------------------------------------
+        | Administrator Routes
+        |--------------------------------------------------------------------------
+        */
 
         Route::get('/admin', [
             PensionGuardAdminController::class,
@@ -170,6 +223,7 @@ Route::prefix('pension-guard')
             'pension_guard.verified',
             'pension_guard.admin',
         ])->name('admin.index');
+
 
         // Administrator audit log
 
@@ -182,6 +236,32 @@ Route::prefix('pension-guard')
             'pension_guard.admin',
         ])->name('admin.audit.index');
 
+
+        // Administrator session availability management
+
+        Route::prefix('/admin/session-availability')
+            ->name('admin.availability.')
+            ->middleware([
+                'auth:pension_guard',
+                'pension_guard.verified',
+                'pension_guard.admin',
+            ])
+            ->controller(PensionGuardSessionAvailabilityController::class)
+            ->group(function () {
+
+                Route::get('/', 'index')
+                    ->name('index');
+
+                Route::post('/', 'store')
+                    ->middleware('throttle:10,1')
+                    ->name('store');
+
+                Route::post('/{availability}/toggle', 'toggle')
+                    ->whereNumber('availability')
+                    ->name('toggle');
+            });
+
+
         // Administrator official-source management
 
         Route::prefix('/admin/sources')
@@ -193,12 +273,18 @@ Route::prefix('pension-guard')
             ])
             ->controller(PensionGuardSourceAdminController::class)
             ->group(function () {
+
                 Route::get('/', 'index')->name('index');
+
                 Route::get('/create', 'create')->name('create');
+
                 Route::post('/', 'store')->name('store');
+
                 Route::get('/{source}/edit', 'edit')->name('edit');
+
                 Route::put('/{source}', 'update')->name('update');
             });
+
 
         // Administrator security incident register
 
@@ -211,7 +297,9 @@ Route::prefix('pension-guard')
             ])
             ->controller(PensionGuardSecurityIncidentController::class)
             ->group(function () {
+
                 Route::get('/', 'index')->name('index');
+
                 Route::get('/create', 'create')->name('create');
 
                 Route::post('/', 'store')
@@ -228,14 +316,70 @@ Route::prefix('pension-guard')
                     ->name('update');
             });
 
-        // Authenticated and verified Pension Guard user pages
+
+        /*
+        |--------------------------------------------------------------------------
+        | Authenticated and Email-Verified Customer Routes
+        |--------------------------------------------------------------------------
+        */
 
         Route::middleware([
             'auth:pension_guard',
             'pension_guard.verified',
         ])->group(function () {
 
-            // Pension accounts
+
+            /*
+            |--------------------------------------------------------------------------
+            | Pension Protection Session Bookings
+            |--------------------------------------------------------------------------
+            */
+
+            Route::prefix('/sessions')
+                ->name('sessions.')
+                ->controller(PensionGuardSessionBookingController::class)
+                ->group(function () {
+
+                    // Customer booking history
+                    Route::get('/', 'index')
+                        ->name('index');
+
+                    // Booking calendar page
+                    Route::get('/book', 'create')
+                        ->name('create');
+
+                    // Calendar availability data (must be before {booking})
+                    Route::get('/availability', 'availability')
+                        ->middleware('throttle:60,1')
+                        ->name('availability');
+
+                    // Submit appointment and start Stripe Checkout
+                    Route::post('/book', 'store')
+                        ->middleware('throttle:5,1')
+                        ->name('store');
+
+                    // Stripe payment success return
+                    Route::get('/{booking}/success', 'success')
+                        ->whereNumber('booking')
+                        ->name('success');
+
+                    // Stripe payment cancellation return
+                    Route::get('/{booking}/cancelled', 'cancelled')
+                        ->whereNumber('booking')
+                        ->name('cancelled');
+
+                    // Individual booking details
+                    Route::get('/{booking}', 'show')
+                        ->whereNumber('booking')
+                        ->name('show');
+                });
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Pension Accounts
+            |--------------------------------------------------------------------------
+            */
 
             Route::get('/accounts', [
                 PensionGuardAccountController::class,
@@ -276,7 +420,12 @@ Route::prefix('pension-guard')
             ])->whereNumber('account')
               ->name('accounts.destroy');
 
-            // Security checklist
+
+            /*
+            |--------------------------------------------------------------------------
+            | Pension Account Security Checklist
+            |--------------------------------------------------------------------------
+            */
 
             Route::get('/accounts/{account}/checklist', [
                 PensionGuardChecklistController::class,
@@ -291,7 +440,12 @@ Route::prefix('pension-guard')
               ->whereNumber('check')
               ->name('checklist.update');
 
-            // Saved assessments
+
+            /*
+            |--------------------------------------------------------------------------
+            | Saved Security Assessments
+            |--------------------------------------------------------------------------
+            */
 
             Route::get('/assessments', [
                 PensionGuardAssessmentController::class,
@@ -304,7 +458,12 @@ Route::prefix('pension-guard')
             ])->whereNumber('assessment')
               ->name('assessments.show');
 
-            // Notifications
+
+            /*
+            |--------------------------------------------------------------------------
+            | Notifications
+            |--------------------------------------------------------------------------
+            */
 
             Route::get('/notifications', [
                 PensionGuardNotificationController::class,
@@ -316,7 +475,12 @@ Route::prefix('pension-guard')
                 'markAsRead',
             ])->name('notifications.read');
 
-            // Trusted contacts
+
+            /*
+            |--------------------------------------------------------------------------
+            | Trusted Contacts
+            |--------------------------------------------------------------------------
+            */
 
             Route::get('/trusted-contacts', [
                 PensionGuardTrustedContactController::class,
@@ -359,7 +523,12 @@ Route::prefix('pension-guard')
             ])->whereNumber('contact')
               ->name('trusted-contacts.consent.revoke');
 
-            // Subscriptions
+
+            /*
+            |--------------------------------------------------------------------------
+            | Premium Subscriptions
+            |--------------------------------------------------------------------------
+            */
 
             Route::get('/subscriptions', [
                 PensionGuardSubscriptionController::class,
@@ -396,3 +565,40 @@ Route::prefix('pension-guard')
               ->name('subscriptions.cancel');
         });
     });
+
+
+/*
+|--------------------------------------------------------------------------
+| Public Legal Pages
+|--------------------------------------------------------------------------
+*/
+
+Route::view('/privacy-policy', 'pension-guard.legal.privacy-policy')
+    ->name('privacy-policy');
+
+Route::view('/terms-and-conditions', 'pension-guard.legal.terms-and-conditions')
+    ->name('terms-and-conditions');
+
+
+/*
+|--------------------------------------------------------------------------
+| Public Company Information Pages
+|--------------------------------------------------------------------------
+*/
+
+Route::view('/about', 'pension-guard.public.about')
+    ->name('about');
+
+Route::view('/pricing', 'pension-guard.public.pricing')
+    ->name('pricing');
+
+Route::get('/contact', [
+    PensionGuardContactController::class,
+    'show',
+])->name('contact');
+
+Route::post('/contact', [
+    PensionGuardContactController::class,
+    'submit',
+])->middleware('throttle:5,1')
+  ->name('contact.submit');

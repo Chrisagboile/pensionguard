@@ -140,7 +140,9 @@
 
     <nav aria-label="Pension Account Guard navigation">
         <a href="{{ route('pension-guard.dashboard') }}">Dashboard</a>
-
+        <a href="{{ route('about') }}">About</a>
+        <a href="{{ route('pricing') }}">Pricing</a>
+        <a href="{{ route('contact') }}">Contact</a>
         @auth('pension_guard')
            @if (auth('pension_guard')->user()?->is_admin)
             <a href="{{ route('pension-guard.admin.index') }}">Administration</a>
@@ -169,6 +171,18 @@
 
     <footer>
      Pension Account Guard &mdash; pension security information and awareness.
+    <p>
+        <a href="{{ route('privacy-policy') }}">Privacy Policy</a>
+        &nbsp;|&nbsp;
+        <a href="{{ route('terms-and-conditions') }}">Terms and Conditions</a>
+    </p>
+    <p>
+        <a href="{{ route('about') }}">About</a>
+        &nbsp;|&nbsp;
+        <a href="{{ route('pricing') }}">Pricing</a>
+        &nbsp;|&nbsp;
+        <a href="{{ route('contact') }}">Contact</a>
+    </p>
     </footer>
 </body>
 </html>

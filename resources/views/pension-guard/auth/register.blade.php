@@ -23,7 +23,7 @@
     <form method="POST" action="{{ route('pension-guard.register.submit') }}">
         @csrf
 
-        <label for="name">Your name</label>
+        <label for="name">Your full name</label>
         <input
             id="name"
             type="text"
@@ -35,22 +35,8 @@
             style="width:100%"
         >
 
-        <label for="username">Username</label>
-        <input
-            id="username"
-            type="text"
-            name="username"
-            value="{{ old('username') }}"
-            autocomplete="username"
-            required
-            maxlength="255"
-            pattern="[A-Za-z0-9_-]+"
-            aria-describedby="username-help"
-            style="width:100%"
-        >
-
-        <small id="username-help" class="muted">
-            Use letters, numbers, underscores or hyphens.
+        <small class="muted">
+            Your username will be generated automatically from your name.
         </small>
 
         <label for="email">Email address</label>
@@ -90,6 +76,48 @@
             minlength="12"
             style="width:100%"
         >
+
+        <div style="margin:20px 0;padding:15px;background:#f3f7fc;border:1px solid #dbe5f2;border-radius:8px">
+
+            <label for="terms_accepted" style="display:flex;gap:10px;align-items:flex-start">
+                <input
+                    id="terms_accepted"
+                    type="checkbox"
+                    name="terms_accepted"
+                    value="1"
+                    required
+                    {{ old('terms_accepted') ? 'checked' : '' }}
+                    style="margin-top:5px"
+                >
+
+                <span>
+                    I have read and agree to the
+                    <a href="{{ route('terms-and-conditions') }}" target="_blank" rel="noopener">
+                        Terms and Conditions
+                    </a>.
+                </span>
+            </label>
+
+            <label for="privacy_acknowledged" style="display:flex;gap:10px;align-items:flex-start;margin-top:15px">
+                <input
+                    id="privacy_acknowledged"
+                    type="checkbox"
+                    name="privacy_acknowledged"
+                    value="1"
+                    required
+                    {{ old('privacy_acknowledged') ? 'checked' : '' }}
+                    style="margin-top:5px"
+                >
+
+                <span>
+                    I acknowledge that I have read the
+                    <a href="{{ route('privacy-policy') }}" target="_blank" rel="noopener">
+                        Privacy Policy
+                    </a>.
+                </span>
+            </label>
+
+        </div>
 
         <p>
             <button type="submit">Create account</button>

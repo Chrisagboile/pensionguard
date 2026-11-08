@@ -752,7 +752,7 @@
             <div class="back-home">
 
                 <a href="{{ url('/') }}">
-                    ← Back to CyberReadyAI
+                    ← Back to Tekbiserv Ltd
                 </a>
 
             </div>

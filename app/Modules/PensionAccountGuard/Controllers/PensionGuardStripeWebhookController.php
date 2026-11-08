@@ -5,6 +5,7 @@ namespace App\Modules\PensionAccountGuard\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\PensionAccountGuard\Models\PensionGuardPayment;
 use App\Modules\PensionAccountGuard\Models\PensionGuardPlan;
+use App\Modules\PensionAccountGuard\Models\PensionGuardSessionBooking;
 use App\Modules\PensionAccountGuard\Models\PensionGuardSubscription;
 use App\Modules\PensionAccountGuard\Models\PensionGuardUser;
 use App\Modules\PensionAccountGuard\Models\PensionGuardWebhookEvent;
@@ -104,27 +105,57 @@ class PensionGuardStripeWebhookController extends Controller
     {
         match ($type) {
             'checkout.session.completed' => $this->checkoutCompleted($object),
+
+            'checkout.session.async_payment_succeeded' =>
+                $this->sessionBookingPaymentSucceeded($object),
+
+            'checkout.session.async_payment_failed' =>
+                $this->sessionBookingPaymentFailed($object),
+
+            'checkout.session.expired' =>
+                $this->sessionBookingCheckoutExpired($object),
+
             'customer.subscription.created',
             'customer.subscription.updated',
             'customer.subscription.deleted' => $this->subscriptionChanged($object),
+
             'invoice.paid',
             'invoice.payment_succeeded' => $this->invoicePaid($object),
+
             'invoice.payment_failed' => $this->invoiceFailed($object),
+
             default => null,
         };
     }
 
     /**
-     * Link a completed Checkout Session to the local user.
+     * Process a completed Checkout Session.
      *
-     * Subscription access is still controlled by subscription webhooks.
+     * Subscription processing remains separate from one-off session bookings.
      */
     protected function checkoutCompleted(array $object): void
     {
-        if (($object['mode'] ?? null) !== 'subscription') {
+        if (($object['mode'] ?? null) === 'subscription') {
+            $this->subscriptionCheckoutCompleted($object);
+
             return;
         }
 
+        if (
+            ($object['mode'] ?? null) === 'payment'
+            && ($object['metadata']['product_type'] ?? null) === 'pension_guard_session'
+        ) {
+            $this->sessionBookingPaymentSucceeded($object);
+        }
+    }
+
+    /**
+     * Link a completed subscription Checkout Session to the local user.
+     *
+     * Subscription access is still controlled by subscription webhooks.
+     */
+    protected function subscriptionCheckoutCompleted(array $object): void
+    {
         $customerId = $this->stripeId($object['customer'] ?? null);
         $subscriptionId = $this->stripeId($object['subscription'] ?? null);
 
@@ -132,7 +163,10 @@ class PensionGuardStripeWebhookController extends Controller
             return;
         }
 
-        $user = $this->findUser($customerId, $object['client_reference_id'] ?? null);
+        $user = $this->findUser(
+            $customerId,
+            $object['client_reference_id'] ?? null
+        );
 
         if (!$user) {
             return;
@@ -146,7 +180,10 @@ class PensionGuardStripeWebhookController extends Controller
             'stripe_subscription_id' => $subscriptionId,
         ]);
 
-        if ($subscription->exists && (int) $subscription->user_id !== (int) $user->id) {
+        if (
+            $subscription->exists
+            && (int) $subscription->user_id !== (int) $user->id
+        ) {
             throw new UnexpectedValueException(
                 'Stripe subscription is already linked to another user.'
             );
@@ -159,6 +196,253 @@ class PensionGuardStripeWebhookController extends Controller
             $object['metadata']['billing_interval'] ?? $subscription->billing_interval;
 
         $subscription->save();
+    }
+
+    /**
+     * Confirm a paid Pension Protection Session booking.
+     *
+     * This method is safe to call for both checkout.session.completed
+     * and checkout.session.async_payment_succeeded.
+     */
+    protected function sessionBookingPaymentSucceeded(array $object): void
+    {
+        if (
+            ($object['mode'] ?? null) !== 'payment'
+            || ($object['metadata']['product_type'] ?? null) !== 'pension_guard_session'
+        ) {
+            return;
+        }
+
+        $checkoutSessionId = $this->stripeId($object['id'] ?? null);
+        $customerId = $this->stripeId($object['customer'] ?? null);
+        $bookingId = $object['metadata']['booking_id'] ?? null;
+        $metadataUserId = $object['metadata']['user_id'] ?? null;
+
+        if (
+            !$checkoutSessionId
+            || !$customerId
+            || !$bookingId
+            || !ctype_digit((string) $bookingId)
+            || !$metadataUserId
+            || !ctype_digit((string) $metadataUserId)
+        ) {
+            throw new UnexpectedValueException(
+                'Session booking Checkout metadata is incomplete.'
+            );
+        }
+
+        // A completed event can arrive before a delayed payment has settled.
+        // The separate async_payment_succeeded event will confirm it later.
+        if (($object['payment_status'] ?? null) !== 'paid') {
+            return;
+        }
+
+        DB::transaction(function () use (
+            $object,
+            $checkoutSessionId,
+            $customerId,
+            $bookingId,
+            $metadataUserId
+        ) {
+            $booking = PensionGuardSessionBooking::whereKey(
+                (int) $bookingId
+            )->lockForUpdate()->first();
+
+            if (!$booking) {
+                throw new UnexpectedValueException(
+                    'The session booking linked to this Stripe payment was not found.'
+                );
+            }
+
+            if (
+                (int) $booking->user_id !== (int) $metadataUserId
+            ) {
+                throw new UnexpectedValueException(
+                    'Stripe session booking user does not match the booking owner.'
+                );
+            }
+
+            if (
+                $booking->stripe_checkout_session_id !== $checkoutSessionId
+            ) {
+                throw new UnexpectedValueException(
+                    'Stripe Checkout Session does not match the stored booking.'
+                );
+            }
+
+            $user = PensionGuardUser::whereKey(
+                $booking->user_id
+            )->lockForUpdate()->first();
+
+            if (!$user) {
+                throw new UnexpectedValueException(
+                    'The Pension Guard booking owner could not be found.'
+                );
+            }
+
+            if (
+                (int) $metadataUserId !== (int) $user->id
+                || $user->stripe_customer_id !== $customerId
+            ) {
+                throw new UnexpectedValueException(
+                    'Stripe customer does not match the booking owner.'
+                );
+            }
+
+            $amountTotal = $object['amount_total'] ?? null;
+            $currency = strtolower($object['currency'] ?? '');
+
+            if (
+                !is_numeric($amountTotal)
+                || (int) $amountTotal !== (int) $booking->amount_pence
+            ) {
+                throw new UnexpectedValueException(
+                    'Stripe payment amount does not match the booking amount.'
+                );
+            }
+
+            if (
+                $currency !== strtolower((string) $booking->currency)
+                || $currency !== 'gbp'
+            ) {
+                throw new UnexpectedValueException(
+                    'Stripe payment currency does not match the booking currency.'
+                );
+            }
+
+            // Do not overwrite a booking that has already been confirmed.
+            if (
+                $booking->payment_status === 'paid'
+                && $booking->status === 'confirmed'
+            ) {
+                return;
+            }
+
+            if ($booking->status !== 'pending') {
+                throw new UnexpectedValueException(
+                    'This booking is no longer pending and cannot be confirmed.'
+                );
+            }
+
+            $paymentIntentId = $this->stripeId(
+                $object['payment_intent'] ?? null
+            );
+
+            $booking->forceFill([
+                'stripe_payment_intent_id' => $paymentIntentId,
+                'payment_status' => 'paid',
+                'status' => 'confirmed',
+                'paid_at' => $booking->paid_at ?: now(),
+                'confirmed_at' => $booking->confirmed_at ?: now(),
+                'metadata' => array_merge(
+                    $booking->metadata ?? [],
+                    [
+                        'stripe_payment_status' => 'paid',
+                        'stripe_checkout_session_id' => $checkoutSessionId,
+                        'stripe_payment_intent_id' => $paymentIntentId,
+                    ]
+                ),
+            ])->save();
+        });
+    }
+
+    /**
+     * Release a reservation after an asynchronous payment failure.
+     */
+    protected function sessionBookingPaymentFailed(array $object): void
+    {
+        $this->releaseSessionBookingReservation($object, 'payment_failed');
+    }
+
+    /**
+     * Release a reservation when Stripe Checkout expires.
+     */
+    protected function sessionBookingCheckoutExpired(array $object): void
+    {
+        $this->releaseSessionBookingReservation($object, 'checkout_expired');
+    }
+
+    /**
+     * Mark an unpaid pending booking as expired and release its time slot.
+     *
+     * Already-paid bookings are never expired by a late failure/expiry event.
+     */
+    protected function releaseSessionBookingReservation(
+        array $object,
+        string $reason
+    ): void {
+        if (
+            ($object['mode'] ?? null) !== 'payment'
+            || ($object['metadata']['product_type'] ?? null) !== 'pension_guard_session'
+        ) {
+            return;
+        }
+
+        $checkoutSessionId = $this->stripeId($object['id'] ?? null);
+        $bookingId = $object['metadata']['booking_id'] ?? null;
+        $metadataUserId = $object['metadata']['user_id'] ?? null;
+
+        if (
+            !$checkoutSessionId
+            || !$bookingId
+            || !ctype_digit((string) $bookingId)
+            || !$metadataUserId
+            || !ctype_digit((string) $metadataUserId)
+        ) {
+            throw new UnexpectedValueException(
+                'Session booking expiry metadata is incomplete.'
+            );
+        }
+
+        DB::transaction(function () use (
+            $checkoutSessionId,
+            $bookingId,
+            $metadataUserId,
+            $reason
+        ) {
+            $booking = PensionGuardSessionBooking::whereKey(
+                (int) $bookingId
+            )->lockForUpdate()->first();
+
+            if (!$booking) {
+                throw new UnexpectedValueException(
+                    'The session booking linked to the expired Checkout Session was not found.'
+                );
+            }
+
+            if (
+                (int) $booking->user_id !== (int) $metadataUserId
+                || $booking->stripe_checkout_session_id !== $checkoutSessionId
+            ) {
+                throw new UnexpectedValueException(
+                    'Expired Stripe Checkout Session does not match the stored booking.'
+                );
+            }
+
+            // A late expiry/failure event must never undo a successful payment.
+            if (
+                $booking->payment_status === 'paid'
+                || $booking->status === 'confirmed'
+            ) {
+                return;
+            }
+
+            if ($booking->status !== 'pending') {
+                return;
+            }
+
+            $booking->forceFill([
+                'status' => 'expired',
+                'payment_status' => 'failed',
+                'metadata' => array_merge(
+                    $booking->metadata ?? [],
+                    [
+                        'stripe_reservation_release_reason' => $reason,
+                        'stripe_reservation_released_at' => now()->toIso8601String(),
+                    ]
+                ),
+            ])->save();
+        });
     }
 
     /**
@@ -194,6 +478,7 @@ class PensionGuardStripeWebhookController extends Controller
         }
 
         $priceId = data_get($object, 'items.data.0.price.id');
+
         $plan = $priceId
             ? PensionGuardPlan::where('stripe_price_id', $priceId)->first()
             : null;
@@ -240,7 +525,7 @@ class PensionGuardStripeWebhookController extends Controller
     }
 
     /**
-     * Record a successfully paid invoice.
+     * Record a successfully paid subscription invoice.
      */
     protected function invoicePaid(array $object): void
     {
@@ -291,7 +576,7 @@ class PensionGuardStripeWebhookController extends Controller
     }
 
     /**
-     * Record a failed invoice payment.
+     * Record a failed subscription invoice payment.
      */
     protected function invoiceFailed(array $object): void
     {

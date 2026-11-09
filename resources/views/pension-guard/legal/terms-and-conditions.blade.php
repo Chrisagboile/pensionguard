@@ -258,8 +258,7 @@
     <h2>18. Governing law</h2>
 
     <p>
-        These Terms are subject to the laws of [CONFIRM APPLICABLE
-        JURISDICTION]. Any applicable consumer rights and mandatory
+        These Terms are subject to the laws of United Kingdom. Any applicable consumer rights and mandatory
         legal protections remain unaffected.
     </p>
 
@@ -274,3 +273,4 @@
     </p>
 </div>
 @endsection
+

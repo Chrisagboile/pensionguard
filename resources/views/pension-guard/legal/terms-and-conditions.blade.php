@@ -21,11 +21,11 @@
         ("we", "us" or "our").
     </p>
 
-    <p>
+   <!--- <p>
         Registered address: [INSERT REGISTERED OFFICE ADDRESS]<br>
         Company registration number: [INSERT COMPANY NUMBER]<br>
         Contact email: [INSERT CONTACT EMAIL]
-    </p>
+    </p> -->
 
     <h2>2. What Pension Account Guard provides</h2>
 
@@ -266,8 +266,7 @@
     <h2>19. Contact</h2>
 
     <p>
-        For questions about these Terms, contact:
-        [INSERT CONTACT EMAIL].
+        For questions about these Terms, contact: support@tekbiserv.co.uk.
     </p>
 
     <p>

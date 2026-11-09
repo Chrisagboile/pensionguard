@@ -208,8 +208,7 @@
     <h2>15. Contact</h2>
 
     <p>
-        For privacy questions or requests, contact:
-        [INSERT PRIVACY CONTACT EMAIL].
+        For privacy questions or requests, contact: support@tekbiserv.co.uk
     </p>
 
     <p>

@@ -10,7 +10,10 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Mobile Sanctum personal access tokens expire after 30 days.
+        config([
+            'sanctum.expiration' => 43200,
+        ]);
     }
 
     public function boot(): void

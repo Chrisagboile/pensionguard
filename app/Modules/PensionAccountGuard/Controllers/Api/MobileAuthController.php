@@ -37,7 +37,11 @@ class MobileAuthController extends Controller
             ], 403);
         }
 
-        $token = $user->createToken($credentials['device_name']);
+        $token = $user->createToken(
+            $credentials['device_name'],
+            ['*'],
+            now()->addMinutes(config('sanctum.expiration'))
+        );
 
         return response()->json([
             'message' => 'Signed in successfully.',

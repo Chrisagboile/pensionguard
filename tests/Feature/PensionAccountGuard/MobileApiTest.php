@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\PensionAccountGuard;
 
+use Illuminate\Support\Facades\Auth;
 use App\Modules\PensionAccountGuard\Models\PensionGuardAccount;
 use App\Modules\PensionAccountGuard\Models\PensionGuardAssessment;
 use App\Modules\PensionAccountGuard\Models\PensionGuardUser;
@@ -196,11 +197,13 @@ class MobileApiTest extends TestCase
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
 
+        // Clear cached authentication state before simulating a new request.
+        Auth::forgetGuards();
+
         $this->withToken($token)
             ->getJson('/api/v1/me')
             ->assertUnauthorized();
     }
-
     public function test_mobile_token_is_rejected_after_its_expiry(): void
     {
         $user = $this->createPensionGuardUser();

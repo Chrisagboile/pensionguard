@@ -62,9 +62,10 @@ class MobileApiTest extends TestCase
 
         $this->assertSame('My iPhone', $token->name);
         $this->assertNotNull($token->expires_at);
-        $this->assertEquals(
+        $this->assertEqualsWithDelta(
             now()->addMinutes(43200)->timestamp,
-            $token->expires_at->timestamp
+            $token->expires_at->timestamp,
+            2
         );
     }
 

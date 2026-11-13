@@ -10,10 +10,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class PensionGuardUser extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, Notifiable, MustVerifyEmailTrait;
+    use HasApiTokens, HasFactory, Notifiable, MustVerifyEmailTrait;
 
     protected $table = 'pension_guard_users';
 
@@ -21,7 +22,7 @@ class PensionGuardUser extends Authenticatable implements MustVerifyEmail
         'name',
         'username',
         'email',
-	'email_verified_at',
+        'email_verified_at',
         'password',
         'is_admin',
         'stripe_customer_id',
@@ -77,10 +78,9 @@ class PensionGuardUser extends Authenticatable implements MustVerifyEmail
 
     public function sessionBookings(): HasMany
     {
-                    return $this->hasMany(
-                                    PensionGuardSessionBooking::class,
-                                    'user_id'
-                    );
+        return $this->hasMany(
+            PensionGuardSessionBooking::class,
+            'user_id'
+        );
     }
-
 }
